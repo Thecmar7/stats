@@ -1,0 +1,151 @@
+#!/bin/bash
+
+##################################################################
+# Name:     Cramer Smith
+# Date:     10 / 19 / 2015
+# Class:    CS 344
+#           Homework 1
+# Title:    stats
+# Purpose:  This script is a small stats script that takes files
+#           and looking at the rows and columns of the tile it 
+#           will find the average and median of the rows and 
+#           columns depending on the way usage.
+#
+#           Usage:    stats {-rows|-cols} [file]
+#
+################################################################### 
+
+TMP1=./TMP1_$$
+TMP2=./TMP2_$$
+
+# trap statement
+trap "clean_up" INT HUP EXIT
+
+
+INPUT="input_that_the_user_will_give"
+
+# This takes in an error message and then ends the program at 
+bad_news() {
+    echo "./stats {-rows|-cols} [file]: $1" >&2
+    exit 1
+}
+
+# this removes all the files that were made during the scripts execution
+clean_up() {
+    rm -f $TMP2
+    rm -f $TMP1
+    rm -f input_that_the_user_will_give
+}
+
+# check if the user has put in the correct amount of arguments
+if [ "$#" -eq "0" ]         # user gives no arguments
+then
+    bad_news " "
+fi
+
+if  [ "$#" -gt "2" ]        # check if the user has put in the
+then 
+    bad_news "too many arguments"
+elif [ "$#" -eq "2" ]       # user gives two arguments
+then
+    INPUT=$2
+else                        # if the user only gives one, use standard in to get the input
+    cat > $INPUT   
+        
+fi
+
+# Now that we have the input check that it is okay
+if [ ! -r "$INPUT" ]         # check if the file is the file readable?
+then
+    bad_news ": cannot read $INPUT"
+fi
+
+# NOW WE START THE SCRIPT!
+if [[ $1 == -r* ]]          # if command starts with '-r' do rows
+then
+    #getting the number of rows!
+    num=$( wc -l $INPUT | cut -f1 -d ' ' )
+
+    #look at the rows!
+    echo -e "\nAverage Median"
+    
+    # read in each line from the file into temp
+    while read line 
+    do
+        SUM=0                               # reset the sum
+        
+        echo "$line" > $TMP1                # save the line
+        touch $TMP2                         # create a temp 2
+        echo " " > $TMP2                    # put something in it cause I need to 
+        
+        #read each character from the temp file
+        for word in $line                   # looking at the words in line
+        do     
+            SUM=`expr $word + $SUM`
+            echo "$word" >> $TMP2 # This is for the median
+        done 
+        
+        # getting the rounded average
+        MOD=`expr $SUM % $num`              # remainder of sum / num of columns
+        SUM=`expr $SUM + $MOD`              # sum plus the the mod
+        SUM=`expr $SUM / $num`              # the new sum / the num of columns
+        printf "%i\t" "$SUM"                # display the average
+        
+        # getting the median 
+        MOD=$(( ( $num / 2 ) + 2 ))         # the middle
+        if [[ "$MOD" -eq 2 ]]               # prints out even if there is only one thing in the file
+        then
+            echo `cat $TMP2`                # if there is only one thing we can print that one thing
+        else
+            sort -bg $TMP2 | sed -n "$MOD"p # <-- DON'T DELETE THIS P!
+        fi
+
+    done < $INPUT 
+   
+elif [[ $1 == -c* ]]        # if command starts with '-c' do columns
+then
+    #looking at the columns!
+    
+    #getting the number of columns. I know that in the grading thing the test files are all square but the 'test_file'
+    #in the Program 1 canvas page has six rows and five columns so I wanted to make sure it worked for non-square input 
+    num=$( head -n 1 $INPUT | wc -w | cut -f1 -d ' ' )
+    echo "Average"    
+
+    NUMOFLINES=$( wc -l < "$INPUT" )        # Get the number of columns we are going to be working with
+
+    # the average
+    for (( i=1; i<=$num; i++ ))             # go through the number of columns
+    do
+        SUM=0                               # reset SUM
+        cut -f$i $INPUT > $TMP1             # take that column put it in temp
+
+        # look at every line of the temp file
+        while read line                     #
+        do 
+            one_num=$(echo $line | cut -f1) # one num
+            SUM=`expr $SUM + $one_num`      # add the one num to the sum
+        done < $TMP1
+
+        #getting the rounded average
+        MOD=`expr $SUM % $NUMOFLINES`       # remainder of sum / num of columns
+        SUM=`expr $SUM + $MOD`              # sum plus the the mod
+        SUM=`expr $SUM / $NUMOFLINES`       # the new sum / the num of columns
+        printf "%d\t" $SUM                  # display the average
+    done 
+    printf "\n"                             # make a new line cause fense post.
+
+    # The median
+    echo "Median"
+    for (( i=1; i<=$num; i++ ))             # go through all the number of columns
+    do
+        MOD=`expr $NUMOFLINES / 2 + 1` 
+        cut -f$i $INPUT > $TMP1     # took out the delimiter
+        foo=$(echo | sort -n $TMP1 | sed -n "$MOD"p) # finding the median from the sorted file
+
+        printf "%d\t" "$foo"
+    done 
+    
+    printf "\n"
+else                # if not given a 'ir' or '-c' then Error
+    bad_news " "
+fi
